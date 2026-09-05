@@ -2,34 +2,43 @@
 Movie Recommendation Engine API
 ---------------------------------
 Item-based collaborative filtering over the real MovieLens (small) dataset
-(100,836 ratings, 9,742 movies, 610 users), served as a REST API.
+(100,836 ratings, 9,742 movies, 610 users), served as a REST API with a
+small browser UI.
 
 Run:
+    python build_index.py      # once, precomputes model/neighbors.json.gz
     uvicorn main:app --reload
 
-Docs:
-    http://127.0.0.1:8000/docs
-
-Note: model builds an in-memory similarity matrix on startup — this takes
-a few seconds due to the dataset size (~9,700 x 9,700 similarity matrix).
+UI:    http://127.0.0.1:8000/
+Docs:  http://127.0.0.1:8000/docs
 """
+import os
+
 from fastapi import FastAPI, HTTPException, Query
+from fastapi.responses import FileResponse
 
 from recommender import MovieRecommender
 
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
 app = FastAPI(title="Movie Recommendation Engine API")
 
-print("Loading MovieLens dataset and building similarity model...")
+print("Loading MovieLens data and neighbour index...")
 engine = MovieRecommender()
-print("Model ready.")
+print(f"Ready — {engine.movies_indexed} movies indexed ({engine.source}).")
 
 
-@app.get("/")
-def root():
+@app.get("/", include_in_schema=False)
+def home():
+    return FileResponse(os.path.join(BASE_DIR, "index.html"))
+
+
+@app.get("/health")
+def health():
     return {
         "message": "Movie Recommendation Engine API is running.",
-        "movies_loaded": len(engine.movies),
-        "ratings_loaded": len(engine.ratings),
+        "movies_indexed": engine.movies_indexed,
+        "index_source": engine.source,
     }
 
 
@@ -46,10 +55,7 @@ def recommend(title: str = Query(..., description="Movie title (partial match ok
     movie, recs = engine.recommend_by_title(title, top_n=top_n)
     if movie is None:
         raise HTTPException(status_code=404, detail="No movie matched that title.")
-    return {
-        "matched_movie": movie,
-        "recommendations": recs,
-    }
+    return {"matched_movie": movie, "recommendations": recs}
 
 
 @app.get("/recommend/{movie_id}")

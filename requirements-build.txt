@@ -1,0 +1,3 @@
+# For running build_index.py / evaluate.py locally.
+-r requirements.txt
+scikit-learn

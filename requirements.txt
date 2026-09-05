@@ -1,5 +1,7 @@
+# Runtime (serving the API). The precomputed model/neighbors.json.gz is
+# committed, so scikit-learn is NOT needed to serve — only to rebuild the
+# index (see requirements-build.txt).
 fastapi
 uvicorn
 pandas
 numpy
-scikit-learn

@@ -14,9 +14,9 @@ working with a genuine public dataset rather than synthetic data.
 
 ## Stack
 
-- **FastAPI** — REST API
+- **FastAPI** — REST API + a small browser UI (search a film, see recommendations)
 - **Pandas** — data loading and the user-item pivot table
-- **scikit-learn (cosine similarity)** — item-item similarity computation
+- **scikit-learn (cosine similarity)** — item-item similarity (offline, in `build_index.py`)
 - **MovieLens (small) dataset** — real public data (`movies.csv`, `ratings.csv`)
 
 ## How it works
@@ -28,17 +28,30 @@ working with a genuine public dataset rather than synthetic data.
 3. Given a movie, return the most similar movies by that score —
    the classic "users who liked X also liked Y" pattern
 
+### Serving vs. training
+
+The full 9.7k × 9.7k similarity matrix needs well over a GB of RAM, which
+does not fit a small free-tier container. So `build_index.py` runs the
+heavy step **once, offline**, and writes the top-50 neighbours per movie
+to `model/neighbors.json.gz` (2 MB, committed). The web service just
+loads that — startup is instant and it serves in ~200 MB of RAM.
+
 ## Run locally
 
 ```bash
-pip install -r requirements.txt
+pip install -r requirements-build.txt   # runtime deps + scikit-learn
+python build_index.py                    # writes model/neighbors.json.gz (already committed)
 uvicorn main:app --reload
 ```
 
-Note: building the similarity matrix on startup takes ~10-15 seconds due
-to dataset size — this is expected, not a bug.
+- UI:   `http://127.0.0.1:8000/`
+- Docs: `http://127.0.0.1:8000/docs`
 
-Then open `http://127.0.0.1:8000/docs`.
+## Deploy
+
+`render.yaml` is a [Render](https://render.com) blueprint — push to GitHub,
+then **New + → Blueprint → this repo**. The committed index means the free
+plan is enough; no build-time model step.
 
 ## Example
 
@@ -58,7 +71,7 @@ train/test split on ratings, with the similarity matrix built only on
 training data (no test leakage), then Precision@10 measured on held-out
 "liked" movies (rating ≥ 4.0).
 
-Run it:
+Run it (needs `requirements-build.txt` for scikit-learn):
 ```bash
 python evaluate.py
 ```

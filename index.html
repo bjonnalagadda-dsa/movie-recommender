@@ -1,0 +1,202 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Movie Recommender</title>
+<style>
+  :root {
+    --bg: #f4f5fb; --bg1: #eef0fb; --bg2: #f8f6fc;
+    --card: #fff; --text: #1c1e27; --muted: #6b7080; --border: #e6e7ef;
+    --accent: #7c3aed; --accent-strong: #6d28d9;
+    --good: #10b981; --star: #f59e0b;
+    --shadow: 0 1px 3px rgba(19,22,40,.06), 0 12px 32px rgba(19,22,40,.06);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0e0f16; --bg1: #14151f; --bg2: #0e0f16;
+      --card: #171826; --text: #e9eaf2; --muted: #9498a8; --border: #262838;
+      --accent: #a78bfa; --accent-strong: #c4b5fd;
+      --good: #34d399; --star: #fbbf24;
+      --shadow: 0 1px 3px rgba(0,0,0,.4), 0 12px 32px rgba(0,0,0,.35);
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    color: var(--text); line-height: 1.55; min-height: 100vh;
+    background:
+      radial-gradient(1200px 600px at 12% -10%, var(--bg1), transparent 60%),
+      radial-gradient(1000px 700px at 112% 8%, var(--bg2), transparent 55%),
+      var(--bg);
+  }
+  .wrap { max-width: 860px; margin: 0 auto; padding: 40px 20px 80px; }
+  header { display: flex; align-items: center; gap: 13px; flex-wrap: wrap; }
+  .logo {
+    width: 42px; height: 42px; border-radius: 12px; flex: none; display: grid; place-items: center;
+    background: linear-gradient(135deg, var(--accent), #ec4899); color: #fff; font-size: 20px;
+    box-shadow: 0 6px 18px rgba(124,58,237,.35);
+  }
+  h1 { font-size: 1.4rem; margin: 0; letter-spacing: -0.01em; }
+  .sub { color: var(--muted); font-size: .92rem; margin: 6px 0 22px; }
+
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; box-shadow: var(--shadow); padding: 20px; }
+  form { display: flex; gap: 10px; flex-wrap: wrap; }
+  input[type=text] {
+    flex: 1; min-width: 220px; padding: 11px 13px; font: inherit; font-size: .95rem; color: var(--text);
+    background: color-mix(in srgb, var(--card) 92%, var(--bg)); border: 1px solid var(--border);
+    border-radius: 11px; outline: none; transition: border-color .15s, box-shadow .15s;
+  }
+  input[type=text]:focus { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 20%, transparent); }
+  button {
+    font: inherit; font-weight: 600; cursor: pointer; border-radius: 11px; border: 1px solid transparent;
+    padding: 11px 20px; background: var(--accent-strong); color: #fff;
+    box-shadow: 0 6px 16px rgba(109,40,217,.3); transition: transform .06s, background .15s, opacity .15s;
+  }
+  button:hover { background: var(--accent); }
+  button:active { transform: translateY(1px); }
+  button:disabled { opacity: .6; cursor: progress; }
+
+  .examples { margin-top: 12px; display: flex; flex-wrap: wrap; gap: 7px; align-items: center; }
+  .examples span { font-size: .8rem; color: var(--muted); }
+  .ex {
+    font: inherit; font-size: .8rem; font-weight: 600; padding: 4px 11px; border-radius: 999px; cursor: pointer;
+    background: transparent; color: var(--muted); border: 1px solid var(--border); box-shadow: none;
+  }
+  .ex:hover { color: var(--text); border-color: var(--accent); background: transparent; }
+
+  .spinner { width: 15px; height: 15px; border: 2px solid rgba(255,255,255,.45); border-top-color: #fff;
+    border-radius: 50%; display: inline-block; vertical-align: -3px; margin-right: 8px; animation: spin .7s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  #error { margin-top: 14px; padding: 11px 13px; border-radius: 11px; font-size: .88rem;
+    background: color-mix(in srgb, #ef4444 12%, var(--card)); color: #ef4444;
+    border: 1px solid color-mix(in srgb, #ef4444 35%, var(--border)); }
+
+  #out { margin-top: 22px; }
+  .matched { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin-bottom: 4px; }
+  .matched h2 { font-size: 1.05rem; margin: 0; }
+  .matched .for { color: var(--muted); font-size: .8rem; text-transform: uppercase; letter-spacing: .06em; }
+
+  ol.recs { list-style: none; margin: 14px 0 0; padding: 0; display: grid; gap: 8px; }
+  .rec { display: grid; grid-template-columns: 26px 1fr auto; gap: 12px; align-items: center;
+    padding: 12px 14px; border: 1px solid var(--border); border-radius: 12px; background: var(--card); }
+  .rec .rank { color: var(--muted); font-variant-numeric: tabular-nums; font-weight: 700; font-size: .9rem; }
+  .rec .title { font-weight: 600; }
+  .rec .genres { margin-top: 4px; display: flex; flex-wrap: wrap; gap: 5px; }
+  .genre { font-size: .72rem; font-weight: 600; padding: 2px 8px; border-radius: 999px;
+    background: color-mix(in srgb, var(--accent) 12%, var(--card)); color: var(--accent);
+    border: 1px solid color-mix(in srgb, var(--accent) 25%, transparent); }
+  .rec .meta { text-align: right; min-width: 120px; }
+  .rec .sim { font-variant-numeric: tabular-nums; font-weight: 700; font-size: .9rem; }
+  .rec .simbar { height: 6px; border-radius: 999px; background: var(--border); overflow: hidden; margin-top: 5px; }
+  .rec .simbar i { display: block; height: 100%; border-radius: 999px;
+    background: linear-gradient(90deg, var(--accent), #ec4899); transition: width .8s cubic-bezier(.2,.8,.2,1); }
+  .rec .nr { color: var(--muted); font-size: .72rem; margin-top: 4px; }
+
+  footer { text-align: center; color: var(--muted); font-size: .8rem; margin-top: 34px; }
+  footer a { color: var(--accent); text-decoration: none; }
+  code { background: color-mix(in srgb, var(--accent) 12%, var(--card)); padding: 1px 5px; border-radius: 5px; font-size: .85em; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="logo">🎬</div>
+    <div>
+      <h1>Movie Recommender</h1>
+    </div>
+  </header>
+  <p class="sub">Item-based collaborative filtering on the real MovieLens dataset (100K ratings, 9.7K movies). Type a film you like — get the movies its raters also liked.</p>
+
+  <div class="card">
+    <form id="form">
+      <input type="text" id="q" placeholder="e.g. The Matrix, Toy Story, Pulp Fiction&hellip;" autocomplete="off" />
+      <button id="go" type="submit">Recommend</button>
+    </form>
+    <div class="examples">
+      <span>Try:</span>
+      <button class="ex" type="button">The Matrix</button>
+      <button class="ex" type="button">Toy Story</button>
+      <button class="ex" type="button">Pulp Fiction</button>
+      <button class="ex" type="button">The Lion King</button>
+      <button class="ex" type="button">Star Wars</button>
+    </div>
+    <div id="error" hidden></div>
+    <div id="out" hidden></div>
+  </div>
+
+  <footer>
+    API: <a href="/docs">/docs</a> &nbsp;&middot;&nbsp; <code>GET /recommend?title=&hellip;</code> &nbsp;&middot;&nbsp; <code>GET /search?q=&hellip;</code>
+  </footer>
+</div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+
+function esc(s) {
+  return String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+
+function render(data) {
+  const m = data.matched_movie;
+  const recs = data.recommendations || [];
+  const maxSim = Math.max(0.0001, ...recs.map(r => r.similarity_score));
+
+  const rows = recs.map((r, i) => `
+    <li class="rec">
+      <div class="rank">${i + 1}</div>
+      <div>
+        <div class="title">${esc(r.title)}</div>
+        <div class="genres">${(r.genres || "").split("|").filter(g => g && g !== "(no genres listed)").slice(0, 4).map(g => `<span class="genre">${esc(g)}</span>`).join("")}</div>
+      </div>
+      <div class="meta">
+        <div class="sim">${r.similarity_score.toFixed(3)}</div>
+        <div class="simbar"><i data-w="${(100 * r.similarity_score / maxSim).toFixed(1)}"></i></div>
+        <div class="nr">${r.num_ratings.toLocaleString()} ratings</div>
+      </div>
+    </li>`).join("");
+
+  $("out").innerHTML = `
+    <div class="matched">
+      <span class="for">Because you like</span>
+      <h2>${esc(m.title)}</h2>
+    </div>
+    <div class="genres">${(m.genres || "").split("|").filter(Boolean).map(g => `<span class="genre">${esc(g)}</span>`).join("")}</div>
+    <ol class="recs">${rows}</ol>
+  `;
+  $("out").hidden = false;
+  requestAnimationFrame(() => {
+    $("out").querySelectorAll(".simbar i").forEach(el => { el.style.width = el.dataset.w + "%"; });
+  });
+}
+
+async function go(title) {
+  const q = (title ?? $("q").value).trim();
+  if (!q) return;
+  $("q").value = q;
+  $("error").hidden = true;
+  const btn = $("go");
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>Finding&hellip;';
+  try {
+    const r = await fetch(`/recommend?title=${encodeURIComponent(q)}&top_n=12`);
+    const j = await r.json();
+    if (!r.ok) throw new Error(j.detail || ("Server " + r.status));
+    render(j);
+  } catch (e) {
+    $("out").hidden = true;
+    $("error").hidden = false;
+    $("error").textContent = e.message;
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "Recommend";
+  }
+}
+
+$("form").addEventListener("submit", (e) => { e.preventDefault(); go(); });
+document.querySelectorAll(".ex").forEach(b => b.addEventListener("click", () => go(b.textContent)));
+</script>
+</body>
+</html>
